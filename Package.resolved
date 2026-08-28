@@ -1,0 +1,33 @@
+{
+  "originHash" : "0f46b0ed6b5710a12eed7740615490e3270f7e8b77ca543811ee43034e193ddd",
+  "pins" : [
+    {
+      "identity" : "agentic",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Agentic.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "d26ac0dacef4e59800e9d21a755cb4d0e63889db"
+      }
+    },
+    {
+      "identity" : "guidelines",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Guidelines.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "a39e1130e31588a1f21dc24aeeb8fb0a1357c7f1"
+      }
+    },
+    {
+      "identity" : "primitives",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Primitives.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "7992ebc66ba098758e574befc1b869978b38e82c"
+      }
+    }
+  ],
+  "version" : 3
+}
