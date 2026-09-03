@@ -39,12 +39,34 @@ public struct AgentModelBrokerResponseProvider: AgentModelResponseProviding {
         )
     }
 
+    public func buffered(
+        request: AgentRequest,
+        context: AgentModelInvocationContext
+    ) async throws -> AgentResponse {
+        try await broker.buffered(
+            request: request,
+            policy: policy,
+            context: context
+        )
+    }
+
     public func stream(
         request: AgentRequest
     ) -> AsyncThrowingStream<AgentStreamEvent, Error> {
         broker.stream(
             request: request,
             policy: policy
+        )
+    }
+
+    public func stream(
+        request: AgentRequest,
+        context: AgentModelInvocationContext
+    ) -> AsyncThrowingStream<AgentStreamEvent, Error> {
+        broker.stream(
+            request: request,
+            policy: policy,
+            context: context
         )
     }
 }

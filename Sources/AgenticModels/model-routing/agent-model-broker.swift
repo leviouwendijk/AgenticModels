@@ -22,6 +22,18 @@ public struct AgentModelBroker: Sendable, AgentAdvisorModelProviding {
         request: AgentRequest,
         policy: AgentModelUsePolicy = .executor
     ) async throws -> AgentResponse {
+        try await buffered(
+            request: request,
+            policy: policy,
+            context: .default
+        )
+    }
+
+    public func buffered(
+        request: AgentRequest,
+        policy: AgentModelUsePolicy = .executor,
+        context: AgentModelInvocationContext
+    ) async throws -> AgentResponse {
         let routeResult = try route(
             request: request,
             policy: policy
@@ -33,7 +45,8 @@ public struct AgentModelBroker: Sendable, AgentAdvisorModelProviding {
             through: routeResult
         )
         let response = try await adapter.respond(
-            request: routedRequest
+            request: routedRequest,
+            context: context
         ).routed(
             through: routeResult
         )
@@ -51,6 +64,18 @@ public struct AgentModelBroker: Sendable, AgentAdvisorModelProviding {
         request: AgentRequest,
         policy: AgentModelUsePolicy = .executor
     ) -> AsyncThrowingStream<AgentStreamEvent, Error> {
+        stream(
+            request: request,
+            policy: policy,
+            context: .default
+        )
+    }
+
+    public func stream(
+        request: AgentRequest,
+        policy: AgentModelUsePolicy = .executor,
+        context: AgentModelInvocationContext
+    ) -> AsyncThrowingStream<AgentStreamEvent, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
@@ -67,7 +92,8 @@ public struct AgentModelBroker: Sendable, AgentAdvisorModelProviding {
 
                     for try await event in adapter.respond(
                         request: routedRequest,
-                        delivery: .stream
+                        delivery: .stream,
+                        context: context
                     ) {
                         let routedEvent = event.routed(
                             through: routeResult
