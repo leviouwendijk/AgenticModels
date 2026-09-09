@@ -14,16 +14,40 @@ enum AgenticModelsFlowSuite: TestFlowRegistry {
 
     static let flows: [TestFlow] = [
         TestFlow(
-            "broker-buffered-result",
+            "broker-model-invocation",
             tags: [
                 "agentic-models",
                 "broker",
+                "invocation",
                 "routing",
                 "ledger",
             ]
         ) {
             try await AgenticModelsFlowTesting
-                .runBrokerBufferedResult()
+                .runBrokerModelInvocation()
+        },
+        TestFlow(
+            "selection-resolution",
+            tags: [
+                "agentic-models",
+                "selection",
+                "resolution",
+            ]
+        ) {
+            try await AgenticModelsFlowTesting
+                .runSelectionResolution()
+        },
+        TestFlow(
+            "preference-fallback",
+            tags: [
+                "agentic-models",
+                "routing",
+                "preferences",
+                "constraints",
+            ]
+        ) {
+            try await AgenticModelsFlowTesting
+                .runPreferenceFallback()
         },
     ]
 }

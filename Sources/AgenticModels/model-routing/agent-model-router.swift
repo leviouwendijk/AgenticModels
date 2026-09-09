@@ -9,20 +9,13 @@ public protocol AgentModelRouter: Sendable {
 
 public struct StaticAgentModelRouter: AgentModelRouter {
     public var defaults: [AgentModelRoutePurpose: AgentModelProfileIdentifier]
-    public var fallback: [AgentModelRoutePurpose]
     public var defaultProfileIdentifier: AgentModelProfileIdentifier?
 
     public init(
         defaults: [AgentModelRoutePurpose: AgentModelProfileIdentifier] = [:],
-        fallback: [AgentModelRoutePurpose] = [
-            .executor,
-            .summarizer,
-            .classifier
-        ],
         defaultProfileIdentifier: AgentModelProfileIdentifier? = nil
     ) {
         self.defaults = defaults
-        self.fallback = fallback
         self.defaultProfileIdentifier = defaultProfileIdentifier
     }
 
@@ -30,149 +23,304 @@ public struct StaticAgentModelRouter: AgentModelRouter {
         _ request: AgentModelRouteRequest,
         catalog: AgentModelProfileCatalog
     ) throws -> AgentModelRouteResult {
-        if let preferredProfileIdentifier = request.policy.preferredProfileIdentifier {
-            return try route(
-                preferredProfileIdentifier,
-                request: request,
-                catalog: catalog,
-                reason: "preferred_profile"
+        let selection = request.selection
+        let eligible = catalog.profiles(
+            for: selection.purpose
+        ).filter { profile in
+            profile.supports(
+                selection
             )
         }
 
-        if let preferredModelID = request.policy.preferredModelID {
-            if let profile = catalog.profiles(
-                for: preferredModelID
-            ).first(where: {
-                $0.supports(
-                    request.policy
-                )
-            }) {
-                return .init(
-                    route: .init(
-                        purpose: request.policy.purpose,
-                        profile: profile,
-                        metadata: routeMetadata(
-                            request
+        guard !eligible.isEmpty else {
+            throw AgentModelRoutingError.noRoute(
+                selection.purpose
+            )
+        }
+
+        var diagnostics: [AgentModelSelectionDiagnostic] = []
+        var preferenceFailed = false
+
+        if let preferredProfileIdentifier =
+            selection.preferences.preferredProfileIdentifier
+        {
+            if let profile = try? catalog.profile(
+                preferredProfileIdentifier
+            ) {
+                if profile.supports(selection) {
+                    diagnostics.append(
+                        .init(
+                            code: .preferred_profile_selected,
+                            metadata: [
+                                "profile": profile.identifier.rawValue,
+                            ]
                         )
-                    ),
-                    reasons: [
-                        "preferred_model"
-                    ]
+                    )
+
+                    return result(
+                        profile: profile,
+                        request: request,
+                        diagnostics: diagnostics
+                    )
+                }
+
+                preferenceFailed = true
+                diagnostics.append(
+                    .init(
+                        code: .preference_rejected_by_constraint,
+                        severity: .warning,
+                        message: "Preferred profile does not satisfy the effective model requirements or constraints.",
+                        metadata: [
+                            "profile": preferredProfileIdentifier.rawValue,
+                        ]
+                    )
+                )
+            } else {
+                preferenceFailed = true
+                diagnostics.append(
+                    .init(
+                        code: .preference_unavailable,
+                        severity: .warning,
+                        message: "Preferred model profile is unavailable.",
+                        metadata: [
+                            "profile": preferredProfileIdentifier.rawValue,
+                        ]
+                    )
                 )
             }
         }
 
-        if let defaultIdentifier = defaults[request.policy.purpose] {
-            return try route(
-                defaultIdentifier,
+        if let preferredModelID = selection.preferences.preferredModelID {
+            let matchingProfiles = catalog.profiles(
+                for: preferredModelID
+            )
+
+            if matchingProfiles.isEmpty {
+                preferenceFailed = true
+                diagnostics.append(
+                    .init(
+                        code: .preference_unavailable,
+                        severity: .warning,
+                        message: "Preferred model is unavailable.",
+                        metadata: [
+                            "model": preferredModelID.rawValue,
+                        ]
+                    )
+                )
+            } else {
+                let matchingEligible = ranked(
+                    matchingProfiles.filter { profile in
+                        profile.supports(selection)
+                    },
+                    preferences: selection.preferences
+                )
+
+                if let profile = matchingEligible.first {
+                    diagnostics.append(
+                        .init(
+                            code: .preferred_model_selected,
+                            metadata: [
+                                "model": preferredModelID.rawValue,
+                                "profile": profile.identifier.rawValue,
+                            ]
+                        )
+                    )
+
+                    return result(
+                        profile: profile,
+                        request: request,
+                        diagnostics: diagnostics
+                    )
+                }
+
+                preferenceFailed = true
+                diagnostics.append(
+                    .init(
+                        code: .preference_rejected_by_constraint,
+                        severity: .warning,
+                        message: "Preferred model exists, but none of its profiles satisfy the effective model requirements or constraints.",
+                        metadata: [
+                            "model": preferredModelID.rawValue,
+                        ]
+                    )
+                )
+            }
+        }
+
+        if let defaultIdentifier = defaults[selection.purpose],
+           let profile = try? catalog.profile(defaultIdentifier),
+           profile.supports(selection)
+        {
+            appendFallbackDiagnostic(
+                to: &diagnostics,
+                if: preferenceFailed,
+                profile: profile
+            )
+            diagnostics.append(
+                .init(
+                    code: .purpose_default_selected,
+                    metadata: [
+                        "profile": profile.identifier.rawValue,
+                    ]
+                )
+            )
+
+            return result(
+                profile: profile,
                 request: request,
-                catalog: catalog,
-                reason: "purpose_default"
+                diagnostics: diagnostics
             )
         }
 
-        if let profile = catalog.profiles(
-            for: request.policy.purpose
-        ).first(where: {
-            $0.supports(
-                request.policy
+        if let defaultProfileIdentifier,
+           let profile = try? catalog.profile(defaultProfileIdentifier),
+           profile.supports(selection)
+        {
+            appendFallbackDiagnostic(
+                to: &diagnostics,
+                if: preferenceFailed,
+                profile: profile
             )
-        }) {
-            return .init(
-                route: .init(
-                    purpose: request.policy.purpose,
-                    profile: profile,
-                    metadata: routeMetadata(
-                        request
-                    )
-                ),
-                reasons: [
-                    "purpose_match"
+            diagnostics.append(
+                .init(
+                    code: .global_default_selected,
+                    metadata: [
+                        "profile": profile.identifier.rawValue,
+                    ]
+                )
+            )
+
+            return result(
+                profile: profile,
+                request: request,
+                diagnostics: diagnostics
+            )
+        }
+
+        guard let profile = ranked(
+            eligible,
+            preferences: selection.preferences
+        ).first else {
+            throw AgentModelRoutingError.noRoute(
+                selection.purpose
+            )
+        }
+
+        appendFallbackDiagnostic(
+            to: &diagnostics,
+            if: preferenceFailed,
+            profile: profile
+        )
+        diagnostics.append(
+            .init(
+                code: .purpose_match_selected,
+                metadata: [
+                    "profile": profile.identifier.rawValue,
                 ]
             )
-        }
+        )
 
-        for purpose in fallback {
-            if let profile = catalog.profiles(
-                for: purpose
-            ).first(where: {
-                $0.supports(
-                    request.policy
-                )
-            }) {
-                return .init(
-                    route: .init(
-                        purpose: request.policy.purpose,
-                        profile: profile,
-                        metadata: routeMetadata(
-                            request
-                        )
-                    ),
-                    reasons: [
-                        "fallback:\(purpose.rawValue)"
-                    ]
-                )
-            }
-        }
-
-        if let defaultProfileIdentifier {
-            return try route(
-                defaultProfileIdentifier,
-                request: request,
-                catalog: catalog,
-                reason: "global_default"
-            )
-        }
-
-        throw AgentModelRoutingError.noRoute(
-            request.policy.purpose
+        return result(
+            profile: profile,
+            request: request,
+            diagnostics: diagnostics
         )
     }
 }
 
 private extension StaticAgentModelRouter {
-    func route(
-        _ profileIdentifier: AgentModelProfileIdentifier,
+    func result(
+        profile: AgentModelProfile,
         request: AgentModelRouteRequest,
-        catalog: AgentModelProfileCatalog,
-        reason: String
-    ) throws -> AgentModelRouteResult {
-        let profile = try catalog.profile(
-            profileIdentifier
-        )
-
-        guard profile.supports(
-            request.policy
-        ) else {
-            throw AgentModelRoutingError.profileRejected(
-                profile: profileIdentifier,
-                reason: "profile does not satisfy purpose, capability, privacy, or token policy"
-            )
+        diagnostics: [AgentModelSelectionDiagnostic]
+    ) -> AgentModelRouteResult {
+        var metadata = request.metadata
+        metadata.merge(
+            request.selection.metadata
+        ) { _, new in
+            new
         }
 
         return .init(
             route: .init(
-                purpose: request.policy.purpose,
+                purpose: request.selection.purpose,
                 profile: profile,
-                metadata: routeMetadata(
-                    request
-                )
+                metadata: metadata
             ),
-            reasons: [
-                reason
-            ]
+            diagnostics: diagnostics
         )
     }
 
-    func routeMetadata(
-        _ request: AgentModelRouteRequest
-    ) -> [String: String] {
-        var metadata = request.metadata
+    func ranked(
+        _ profiles: [AgentModelProfile],
+        preferences: AgentModelPreferences
+    ) -> [AgentModelProfile] {
+        profiles.sorted { lhs, rhs in
+            let lhsScore = preferenceScore(
+                lhs,
+                preferences: preferences
+            )
+            let rhsScore = preferenceScore(
+                rhs,
+                preferences: preferences
+            )
 
-        for (key, value) in request.policy.metadata {
-            metadata[key] = value
+            if lhsScore != rhsScore {
+                return lhsScore > rhsScore
+            }
+
+            if lhs.cost.rank != rhs.cost.rank {
+                return lhs.cost.rank < rhs.cost.rank
+            }
+
+            if lhs.latency.rank != rhs.latency.rank {
+                return lhs.latency.rank < rhs.latency.rank
+            }
+
+            if lhs.privacy.rank != rhs.privacy.rank {
+                return lhs.privacy.rank > rhs.privacy.rank
+            }
+
+            return lhs.identifier.rawValue < rhs.identifier.rawValue
+        }
+    }
+
+    func preferenceScore(
+        _ profile: AgentModelProfile,
+        preferences: AgentModelPreferences
+    ) -> Int {
+        var score = 0
+
+        if let cost = preferences.cost,
+           profile.cost == cost {
+            score += 2
         }
 
-        return metadata
+        if let latency = preferences.latency,
+           profile.latency == latency {
+            score += 1
+        }
+
+        return score
+    }
+
+    func appendFallbackDiagnostic(
+        to diagnostics: inout [AgentModelSelectionDiagnostic],
+        if preferenceFailed: Bool,
+        profile: AgentModelProfile
+    ) {
+        guard preferenceFailed else {
+            return
+        }
+
+        diagnostics.append(
+            .init(
+                code: .fallback_selected,
+                message: "A preferred model selection could not be used; an eligible fallback profile was selected.",
+                metadata: [
+                    "profile": profile.identifier.rawValue,
+                ]
+            )
+        )
     }
 }

@@ -1,81 +1,42 @@
 import Agentic
 
-public struct AgentModelBroker: Sendable, AgentAdvisorModelProviding {
+public struct AgentModelBroker: Sendable, AgentModelInvoking {
     public let profiles: AgentModelProfileCatalog
     public let adapters: AgentModelAdapterCatalog
     public let router: any AgentModelRouter
+    public let selectionResolver: AgentModelSelectionResolver
     public let ledger: (any AgentModelRouteLedger)?
 
     public init(
         profiles: AgentModelProfileCatalog,
         adapters: AgentModelAdapterCatalog,
         router: any AgentModelRouter = StaticAgentModelRouter(),
+        selectionResolver: AgentModelSelectionResolver = .init(),
         ledger: (any AgentModelRouteLedger)? = nil
     ) {
         self.profiles = profiles
         self.adapters = adapters
         self.router = router
+        self.selectionResolver = selectionResolver
         self.ledger = ledger
     }
 
     public func buffered(
-        request: AgentRequest,
-        policy: AgentModelUsePolicy = .executor
-    ) async throws -> AgentResponse {
-        try await buffered(
-            request: request,
-            policy: policy,
-            context: .default
-        )
-    }
-
-    public func buffered(
-        request: AgentRequest,
-        policy: AgentModelUsePolicy = .executor,
-        context: AgentModelInvocationContext
-    ) async throws -> AgentResponse {
-        try await bufferedResult(
-            request: request,
-            policy: policy,
-            context: context
-        ).response
-    }
-
-    public func bufferedResult(
-        request: AgentRequest,
-        policy: AgentModelUsePolicy = .executor
-    ) async throws -> AgentModelBrokerResult {
-        try await bufferedResult(
-            request: request,
-            policy: policy,
-            context: .default
-        )
-    }
-
-    public func bufferedResult(
-        request: AgentRequest,
-        policy: AgentModelUsePolicy = .executor,
-        context: AgentModelInvocationContext
-    ) async throws -> AgentModelBrokerResult {
-        let routeResult = try route(
-            request: request,
-            policy: policy
+        _ invocation: AgentModelInvocation
+    ) async throws -> AgentModelInvocationResult {
+        let prepared = try prepare(
+            invocation
         )
         let adapter = try adapters.adapter(
-            for: routeResult.route.profile.adapterIdentifier
-        )
-        let routedRequest = request.routed(
-            through: routeResult
+            for: prepared.routeResult.route.profile.adapterIdentifier
         )
         let response = try await adapter.respond(
-            request: routedRequest,
-            context: context
-        ).routed(
-            through: routeResult
+            request: invocation.request,
+            context: invocation.context
         )
         let routeRecord = try await record(
-            routeResult,
-            request: routedRequest,
+            prepared.routeResult,
+            requestMetadata: prepared.requestMetadata,
             response: response
         )
 
@@ -86,55 +47,51 @@ public struct AgentModelBroker: Sendable, AgentAdvisorModelProviding {
     }
 
     public func stream(
-        request: AgentRequest,
-        policy: AgentModelUsePolicy = .executor
-    ) -> AsyncThrowingStream<AgentStreamEvent, Error> {
-        stream(
-            request: request,
-            policy: policy,
-            context: .default
-        )
-    }
-
-    public func stream(
-        request: AgentRequest,
-        policy: AgentModelUsePolicy = .executor,
-        context: AgentModelInvocationContext
-    ) -> AsyncThrowingStream<AgentStreamEvent, Error> {
+        _ invocation: AgentModelInvocation
+    ) -> AsyncThrowingStream<AgentModelInvocationEvent, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
-                    let routeResult = try route(
-                        request: request,
-                        policy: policy
+                    let prepared = try prepare(
+                        invocation
                     )
                     let adapter = try adapters.adapter(
-                        for: routeResult.route.profile.adapterIdentifier
+                        for: prepared.routeResult.route.profile.adapterIdentifier
                     )
-                    let routedRequest = request.routed(
-                        through: routeResult
+
+                    continuation.yield(
+                        .routed(
+                            prepared.routeResult
+                        )
                     )
 
                     for try await event in adapter.respond(
-                        request: routedRequest,
+                        request: invocation.request,
                         delivery: .stream,
-                        context: context
+                        context: invocation.context
                     ) {
-                        let routedEvent = event.routed(
-                            through: routeResult
-                        )
-
-                        if case .completed(let response) = routedEvent {
-                            try await record(
-                                routeResult,
-                                request: routedRequest,
+                        switch event {
+                        case .completed(let response):
+                            let routeRecord = try await record(
+                                prepared.routeResult,
+                                requestMetadata: prepared.requestMetadata,
                                 response: response
                             )
-                        }
 
-                        continuation.yield(
-                            routedEvent
-                        )
+                            continuation.yield(
+                                .completed(
+                                    .init(
+                                        response: response,
+                                        route: routeRecord
+                                    )
+                                )
+                            )
+
+                        default:
+                            continuation.yield(
+                                .model(event)
+                            )
+                        }
                     }
 
                     continuation.finish()
@@ -152,31 +109,86 @@ public struct AgentModelBroker: Sendable, AgentAdvisorModelProviding {
     }
 
     public func route(
-        request: AgentRequest,
-        policy: AgentModelUsePolicy = .executor
+        selection: AgentModelSelection,
+        metadata: [String: String] = [:]
     ) throws -> AgentModelRouteResult {
-        try router.route(
+        let resolution = try selectionResolver.resolve(
+            selection
+        )
+        let routed = try router.route(
             .init(
-                request: request,
-                policy: policy
+                selection: resolution.selection,
+                metadata: metadata
             ),
             catalog: profiles
+        )
+
+        return .init(
+            route: routed.route,
+            diagnostics:
+                resolution.diagnostics
+                + routed.diagnostics
         )
     }
 }
 
 private extension AgentModelBroker {
+    struct PreparedInvocation {
+        var routeResult: AgentModelRouteResult
+        var requestMetadata: [String: String]
+    }
+
+    func prepare(
+        _ invocation: AgentModelInvocation
+    ) throws -> PreparedInvocation {
+        var selection = invocation.selection
+        selection.requirements = selection.requirements.merging(
+            .init(
+                capabilities:
+                    invocation.request.responseFormat
+                        .requiredCapabilities
+            )
+        )
+
+        let resolution = try selectionResolver.resolve(
+            selection
+        )
+        var requestMetadata = invocation.request.metadata
+        requestMetadata.merge(
+            invocation.metadata
+        ) { _, new in
+            new
+        }
+
+        let routed = try router.route(
+            .init(
+                selection: resolution.selection,
+                metadata: requestMetadata
+            ),
+            catalog: profiles
+        )
+
+        return .init(
+            routeResult: .init(
+                route: routed.route,
+                diagnostics:
+                    resolution.diagnostics
+                    + routed.diagnostics
+            ),
+            requestMetadata: requestMetadata
+        )
+    }
+
     @discardableResult
     func record(
         _ routeResult: AgentModelRouteResult,
-        request: AgentRequest,
+        requestMetadata: [String: String],
         response: AgentResponse
     ) async throws -> AgentModelRouteRecord {
         let record = AgentModelRouteRecord(
             route: routeResult.route,
-            reasons: routeResult.reasons,
-            warnings: routeResult.warnings,
-            requestMetadata: request.metadata,
+            diagnostics: routeResult.diagnostics,
+            requestMetadata: requestMetadata,
             responseMetadata: response.metadata,
             usage: response.usage
         )
