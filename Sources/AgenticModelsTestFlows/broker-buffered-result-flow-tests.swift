@@ -354,7 +354,9 @@ private struct FixtureModelResponseProvider:
     AgentModelResponseProviding
 {
     func buffered(
-        request _: AgentRequest
+        request _: AgentRequest,
+        route _: AgentModelRoute,
+        context _: AgentModelInvocationContext
     ) async throws -> AgentResponse {
         .init(
             message: .init(
@@ -374,7 +376,9 @@ private struct FixtureModelResponseProvider:
     }
 
     func stream(
-        request _: AgentRequest
+        request _: AgentRequest,
+        route _: AgentModelRoute,
+        context _: AgentModelInvocationContext
     ) -> AsyncThrowingStream<AgentStreamEvent, Error> {
         AsyncThrowingStream { continuation in
             continuation.finish()

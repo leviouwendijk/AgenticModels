@@ -32,6 +32,7 @@ public struct AgentModelBroker: Sendable, AgentModelInvoking {
         )
         let response = try await adapter.respond(
             request: invocation.request,
+            route: prepared.routeResult.route,
             context: invocation.context
         )
         let routeRecord = try await record(
@@ -67,6 +68,7 @@ public struct AgentModelBroker: Sendable, AgentModelInvoking {
 
                     for try await event in adapter.respond(
                         request: invocation.request,
+                        route: prepared.routeResult.route,
                         delivery: .stream,
                         context: invocation.context
                     ) {
