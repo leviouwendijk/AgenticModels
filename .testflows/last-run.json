@@ -1,0 +1,25 @@
+{
+  "failed" : 0,
+  "failed_names" : [
+
+  ],
+  "generated_at" : "2026-09-09T08:55:12Z",
+  "passed" : 1,
+  "results" : [
+    {
+      "display_name" : "broker-buffered-result",
+      "duration_seconds" : 0.0010368824005126953,
+      "name" : "broker-buffered-result",
+      "status" : "passed",
+      "tags" : [
+        "agentic-models",
+        "broker",
+        "ledger",
+        "routing"
+      ]
+    }
+  ],
+  "skipped" : 0,
+  "title" : "AgenticModels flow tests",
+  "total" : 1
+}

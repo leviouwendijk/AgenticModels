@@ -34,6 +34,29 @@ public struct AgentModelBroker: Sendable, AgentAdvisorModelProviding {
         policy: AgentModelUsePolicy = .executor,
         context: AgentModelInvocationContext
     ) async throws -> AgentResponse {
+        try await bufferedResult(
+            request: request,
+            policy: policy,
+            context: context
+        ).response
+    }
+
+    public func bufferedResult(
+        request: AgentRequest,
+        policy: AgentModelUsePolicy = .executor
+    ) async throws -> AgentModelBrokerResult {
+        try await bufferedResult(
+            request: request,
+            policy: policy,
+            context: .default
+        )
+    }
+
+    public func bufferedResult(
+        request: AgentRequest,
+        policy: AgentModelUsePolicy = .executor,
+        context: AgentModelInvocationContext
+    ) async throws -> AgentModelBrokerResult {
         let routeResult = try route(
             request: request,
             policy: policy
@@ -50,14 +73,16 @@ public struct AgentModelBroker: Sendable, AgentAdvisorModelProviding {
         ).routed(
             through: routeResult
         )
-
-        try await record(
+        let routeRecord = try await record(
             routeResult,
             request: routedRequest,
             response: response
         )
 
-        return response
+        return .init(
+            response: response,
+            route: routeRecord
+        )
     }
 
     public func stream(
@@ -141,20 +166,25 @@ public struct AgentModelBroker: Sendable, AgentAdvisorModelProviding {
 }
 
 private extension AgentModelBroker {
+    @discardableResult
     func record(
         _ routeResult: AgentModelRouteResult,
         request: AgentRequest,
         response: AgentResponse
-    ) async throws {
-        try await ledger?.record(
-            .init(
-                route: routeResult.route,
-                reasons: routeResult.reasons,
-                warnings: routeResult.warnings,
-                requestMetadata: request.metadata,
-                responseMetadata: response.metadata,
-                usage: response.usage
-            )
+    ) async throws -> AgentModelRouteRecord {
+        let record = AgentModelRouteRecord(
+            route: routeResult.route,
+            reasons: routeResult.reasons,
+            warnings: routeResult.warnings,
+            requestMetadata: request.metadata,
+            responseMetadata: response.metadata,
+            usage: response.usage
         )
+
+        try await ledger?.record(
+            record
+        )
+
+        return record
     }
 }
