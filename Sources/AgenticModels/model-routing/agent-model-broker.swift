@@ -2,20 +2,20 @@ import Agentic
 
 public struct AgentModelBroker: Sendable, AgentModelInvoking {
     public let profiles: AgentModelProfileCatalog
-    public let adapters: AgentModelAdapterCatalog
+    public let gateways: AgentModelGatewayCatalog
     public let router: any AgentModelRouter
     public let selectionResolver: AgentModelSelectionResolver
     public let ledger: (any AgentModelRouteLedger)?
 
     public init(
         profiles: AgentModelProfileCatalog,
-        adapters: AgentModelAdapterCatalog,
+        gateways: AgentModelGatewayCatalog,
         router: any AgentModelRouter = StaticAgentModelRouter(),
         selectionResolver: AgentModelSelectionResolver = .init(),
         ledger: (any AgentModelRouteLedger)? = nil
     ) {
         self.profiles = profiles
-        self.adapters = adapters
+        self.gateways = gateways
         self.router = router
         self.selectionResolver = selectionResolver
         self.ledger = ledger
@@ -27,10 +27,10 @@ public struct AgentModelBroker: Sendable, AgentModelInvoking {
         let prepared = try prepare(
             invocation
         )
-        let adapter = try adapters.adapter(
-            for: prepared.routeResult.route.profile.adapterIdentifier
+        let gateway = try gateways.gateway(
+            for: prepared.routeResult.route.profile.gatewayIdentifier
         )
-        let response = try await adapter.respond(
+        let response = try await gateway.respond(
             request: invocation.request,
             route: prepared.routeResult.route,
             context: invocation.context
@@ -56,8 +56,8 @@ public struct AgentModelBroker: Sendable, AgentModelInvoking {
                     let prepared = try prepare(
                         invocation
                     )
-                    let adapter = try adapters.adapter(
-                        for: prepared.routeResult.route.profile.adapterIdentifier
+                    let gateway = try gateways.gateway(
+                        for: prepared.routeResult.route.profile.gatewayIdentifier
                     )
 
                     continuation.yield(
@@ -66,7 +66,7 @@ public struct AgentModelBroker: Sendable, AgentModelInvoking {
                         )
                     )
 
-                    for try await event in adapter.respond(
+                    for try await event in gateway.respond(
                         request: invocation.request,
                         route: prepared.routeResult.route,
                         delivery: .stream,

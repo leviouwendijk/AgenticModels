@@ -16,9 +16,9 @@ public struct AgentModelProfileCatalog: Sendable {
                 )
             }
 
-            guard !profile.adapterIdentifier.rawValue.isEmpty else {
+            guard !profile.gatewayIdentifier.rawValue.isEmpty else {
                 throw AgentModelRoutingError.emptyIdentifier(
-                    "adapter"
+                    "gateway"
                 )
             }
 
@@ -117,7 +117,13 @@ public extension AgentModelProfileCatalog {
     init(
         modelProviders: [any AgentModelProvider]
     ) throws {
-        let providers = modelProviders.compactMap(\.profileProvider)
+        var providers: [any AgentModelProfileProvider] = []
+
+        for modelProvider in modelProviders {
+            providers.append(
+                contentsOf: modelProvider.profileProviders
+            )
+        }
 
         try self.init(
             providers: providers

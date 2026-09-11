@@ -49,6 +49,18 @@ enum AgenticModelsFlowSuite: TestFlowRegistry {
             try await AgenticModelsFlowTesting
                 .runPreferenceFallback()
         },
+        TestFlow(
+            "multiple-gateway-resolution",
+            tags: [
+                "agentic-models",
+                "routing",
+                "gateway",
+                "multiple-gateways",
+            ]
+        ) {
+            try await AgenticModelsFlowTesting
+                .runMultipleGatewayResolution()
+        },
     ]
 }
 

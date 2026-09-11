@@ -4,50 +4,31 @@ public struct AgentModelCatalogs:
     Sendable
 {
     public let profiles: AgentModelProfileCatalog
-    public let adapters: AgentModelAdapterCatalog
+    public let gateways: AgentModelGatewayCatalog
 
     public init(
         modelProviders: [any AgentModelProvider],
-        adapterOverrides: [
-            (
-                AgentModelAdapterIdentifier,
-                any AgentModelAdapter
-            )
-        ] = []
+        gatewayOverrides: [any AgentModelGateway] = []
     ) async throws {
-        var realizedAdapters: [
-            (
-                AgentModelAdapterIdentifier,
-                any AgentModelAdapter
-            )
-        ] = []
-
-        realizedAdapters.reserveCapacity(
-            modelProviders.count + adapterOverrides.count
-        )
+        var realizedGateways: [any AgentModelGateway] = []
 
         for provider in modelProviders {
-            guard let factory = provider.adapter else {
-                continue
-            }
-
-            realizedAdapters.append(
-                (
-                    provider.descriptor.adapterIdentifier,
+            for factory in provider.gateways {
+                realizedGateways.append(
                     try await factory.make()
                 )
-            )
+            }
         }
 
-        realizedAdapters.append(
-            contentsOf: adapterOverrides
+        realizedGateways.append(
+            contentsOf: gatewayOverrides
         )
 
         self.profiles = try AgentModelProfileCatalog(
             modelProviders: modelProviders
         )
-        self.adapters = try AgentModelAdapterCatalog(
-            adapters: realizedAdapters
+        self.gateways = try AgentModelGatewayCatalog(
+            gateways: realizedGateways
         )
     }
 }

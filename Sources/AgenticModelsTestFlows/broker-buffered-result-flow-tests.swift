@@ -9,7 +9,7 @@ extension AgenticModelsFlowTesting {
     {
         let profile = AgentModelProfile(
             identifier: "fixture.profile",
-            adapterIdentifier: "fixture.adapter",
+            gatewayIdentifier: "fixture.gateway",
             model: "fixture-model"
         )
         let profiles = try AgentModelProfileCatalog(
@@ -17,18 +17,15 @@ extension AgenticModelsFlowTesting {
                 profile,
             ]
         )
-        let adapters = try AgentModelAdapterCatalog(
-            adapters: [
-                (
-                    "fixture.adapter",
-                    FixtureModelAdapter()
-                ),
+        let gateways = try AgentModelGatewayCatalog(
+            gateways: [
+                FixtureModelGateway(),
             ]
         )
         let ledger = MemoryAgentModelRouteLedger()
         let broker = AgentModelBroker(
             profiles: profiles,
-            adapters: adapters,
+            gateways: gateways,
             router: StaticAgentModelRouter(
                 defaultProfileIdentifier: profile.identifier
             ),
@@ -58,7 +55,7 @@ extension AgenticModelsFlowTesting {
         try Expect.equal(
             result.response.metadata["fixture_response"],
             "true",
-            "broker returns the provider-neutral adapter response"
+            "broker returns the provider-neutral gateway response"
         )
         try Expect.equal(
             result.response.usage?.totalTokens,
@@ -144,9 +141,9 @@ extension AgenticModelsFlowTesting {
                             preferredProfileIdentifier: "mode.profile"
                         ),
                         constraints: .init(
-                            allowedAdapterIdentifiers: [
-                                "fixture.adapter",
-                                "other.adapter",
+                            allowedGatewayIdentifiers: [
+                                "fixture.gateway",
+                                "other.gateway",
                             ],
                             maximumEstimatedUsd: 12
                         )
@@ -166,8 +163,8 @@ extension AgenticModelsFlowTesting {
                             preferredProfileIdentifier: "optimized.profile"
                         ),
                         constraints: .init(
-                            allowedAdapterIdentifiers: [
-                                "fixture.adapter",
+                            allowedGatewayIdentifiers: [
+                                "fixture.gateway",
                             ]
                         )
                     )
@@ -211,11 +208,11 @@ extension AgenticModelsFlowTesting {
             "requirements retain the strictest minimum output capacity"
         )
         try Expect.equal(
-            resolution.selection.constraints.allowedAdapterIdentifiers,
-            Set<AgentModelAdapterIdentifier>([
-                "fixture.adapter",
+            resolution.selection.constraints.allowedGatewayIdentifiers,
+            Set<AgentModelGatewayIdentifier>([
+                "fixture.gateway",
             ]),
-            "constraints intersect allowed adapters"
+            "constraints intersect allowed gateways"
         )
         try Expect.false(
             resolution.selection.constraints.allowsExternal,
@@ -264,7 +261,7 @@ extension AgenticModelsFlowTesting {
     {
         let rejected = AgentModelProfile(
             identifier: "rejected.profile",
-            adapterIdentifier: "fixture.adapter",
+            gatewayIdentifier: "fixture.gateway",
             model: "rejected-model",
             purposes: [
                 .executor,
@@ -272,7 +269,7 @@ extension AgenticModelsFlowTesting {
         )
         let eligible = AgentModelProfile(
             identifier: "eligible.profile",
-            adapterIdentifier: "fixture.adapter",
+            gatewayIdentifier: "fixture.gateway",
             model: "eligible-model",
             purposes: [
                 .executor,
@@ -344,7 +341,9 @@ extension AgenticModelsFlowTesting {
     }
 }
 
-private struct FixtureModelAdapter: AgentModelAdapter {
+private struct FixtureModelGateway: AgentModelGateway {
+    let identifier: AgentModelGatewayIdentifier = "fixture.gateway"
+
     var response: AgentModelResponseProviding {
         FixtureModelResponseProvider()
     }
