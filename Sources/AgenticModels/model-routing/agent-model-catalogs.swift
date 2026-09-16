@@ -11,13 +11,29 @@ public struct AgentModelCatalogs:
         gatewayOverrides: [any AgentModelGateway] = []
     ) async throws {
         var realizedGateways: [any AgentModelGateway] = []
+        var unavailabilityByIdentifier: [
+            AgentModelGatewayIdentifier: AgentModelGatewayUnavailability
+        ] = [:]
 
         for provider in modelProviders {
             for factory in provider.gateways {
-                realizedGateways.append(
-                    try await factory.make()
-                )
+                switch try await factory.resolve() {
+                case .available(let gateway):
+                    realizedGateways.append(gateway)
+                    unavailabilityByIdentifier.removeValue(
+                        forKey: factory.identifier
+                    )
+
+                case .unavailable(let reason):
+                    unavailabilityByIdentifier[factory.identifier] = reason
+                }
             }
+        }
+
+        for gateway in gatewayOverrides {
+            unavailabilityByIdentifier.removeValue(
+                forKey: gateway.identifier
+            )
         }
 
         realizedGateways.append(
@@ -28,7 +44,8 @@ public struct AgentModelCatalogs:
             modelProviders: modelProviders
         )
         self.gateways = try AgentModelGatewayCatalog(
-            gateways: realizedGateways
+            gateways: realizedGateways,
+            unavailabilityByIdentifier: unavailabilityByIdentifier
         )
     }
 }

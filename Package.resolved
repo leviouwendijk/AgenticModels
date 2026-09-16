@@ -7,7 +7,7 @@
       "location" : "https://github.com/leviouwendijk/Agentic.git",
       "state" : {
         "branch" : "master",
-        "revision" : "b4271a89701c5bf2b8f96d1c64497c9ec20c3864"
+        "revision" : "e1dd15c03696e14cbc6dd7879e5638c28a632a02"
       }
     },
     {
@@ -65,12 +65,21 @@
       }
     },
     {
+      "identity" : "macros",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Macros.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "44885d7ebddc4e9ced6f7cba0deac0ca98da20f1"
+      }
+    },
+    {
       "identity" : "primitives",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/leviouwendijk/Primitives.git",
       "state" : {
         "branch" : "master",
-        "revision" : "e626fa0746aee024729bf56549e774d13aa17099"
+        "revision" : "03f80f4df2eab71c69de01e5b0e43f786c8abaad"
       }
     },
     {
@@ -79,7 +88,7 @@
       "location" : "https://github.com/leviouwendijk/Schema.git",
       "state" : {
         "branch" : "master",
-        "revision" : "f23bd9c256f0d7b428c30db68bcd097a3a19c63a"
+        "revision" : "703253bef3f4ae18e03bb35e68ac6db0d1bc584d"
       }
     },
     {
@@ -92,12 +101,12 @@
       }
     },
     {
-      "identity" : "swim",
+      "identity" : "swift-syntax",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/leviouwendijk/Swim",
+      "location" : "https://github.com/swiftlang/swift-syntax.git",
       "state" : {
-        "branch" : "master",
-        "revision" : "0dc46fe1b1d7579e2a883ae45383061cf76d64ee"
+        "revision" : "79e4b74a295b6eb74a8b585e3a39d29e70c1dbd1",
+        "version" : "603.0.2"
       }
     },
     {
@@ -106,7 +115,7 @@
       "location" : "https://github.com/leviouwendijk/Terminal.git",
       "state" : {
         "branch" : "master",
-        "revision" : "9c25740bc00db1019293675375bec5234776805a"
+        "revision" : "269258eea726dc92d563f84cf0e53879c22e5e50"
       }
     },
     {

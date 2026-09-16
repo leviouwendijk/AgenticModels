@@ -61,6 +61,18 @@ enum AgenticModelsFlowSuite: TestFlowRegistry {
             try await AgenticModelsFlowTesting
                 .runMultipleGatewayResolution()
         },
+        TestFlow(
+            "gateway-availability-catalog",
+            tags: [
+                "agentic-models",
+                "gateway",
+                "availability",
+                "catalog",
+            ]
+        ) {
+            try await AgenticModelsFlowTesting
+                .runGatewayAvailabilityCatalog()
+        },
     ]
 }
 
