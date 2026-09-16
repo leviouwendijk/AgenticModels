@@ -9,6 +9,7 @@ public struct AgentModelCatalogs:
 
     public init(
         modelProviders: [any AgentModelProvider],
+        gatewayFactories: [AgentModelGatewayFactory] = [],
         gatewayOverrides: [any AgentModelGateway] = []
     ) async throws {
         var realizedGateways: [any AgentModelGateway] = []
@@ -31,15 +32,32 @@ public struct AgentModelCatalogs:
             }
         }
 
+        for factory in gatewayFactories {
+            realizedGateways.removeAll { gateway in
+                gateway.identifier == factory.identifier
+            }
+
+            switch try await factory.resolve() {
+            case .available(let gateway):
+                realizedGateways.append(gateway)
+                unavailabilityByIdentifier.removeValue(
+                    forKey: factory.identifier
+                )
+
+            case .unavailable(let reason):
+                unavailabilityByIdentifier[factory.identifier] = reason
+            }
+        }
+
         for gateway in gatewayOverrides {
+            realizedGateways.removeAll { realized in
+                realized.identifier == gateway.identifier
+            }
             unavailabilityByIdentifier.removeValue(
                 forKey: gateway.identifier
             )
+            realizedGateways.append(gateway)
         }
-
-        realizedGateways.append(
-            contentsOf: gatewayOverrides
-        )
 
         let profiles = try AgentModelProfileCatalog(
             modelProviders: modelProviders
