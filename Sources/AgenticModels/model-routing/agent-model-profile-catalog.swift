@@ -36,6 +36,14 @@ public struct AgentModelProfileCatalog: Sendable {
         self.profilesByIdentifier = profilesByIdentifier
     }
 
+    private init(
+        validatedProfilesByIdentifier: [
+            AgentModelProfileIdentifier: AgentModelProfile
+        ]
+    ) {
+        self.profilesByIdentifier = validatedProfilesByIdentifier
+    }
+
     public init(
         providers: [any AgentModelProfileProvider]
     ) throws {
@@ -88,6 +96,28 @@ public struct AgentModelProfileCatalog: Sendable {
             .sorted(
                 by: AgentModelProfileOrdering.preferred
             )
+    }
+
+    public func routable(
+        using gateways: AgentModelGatewayCatalog
+    ) -> Self {
+        var routable: [
+            AgentModelProfileIdentifier: AgentModelProfile
+        ] = [:]
+
+        for (identifier, profile) in profilesByIdentifier {
+            guard gateways.isAvailable(
+                profile.gateway.id
+            ) else {
+                continue
+            }
+
+            routable[identifier] = profile
+        }
+
+        return .init(
+            validatedProfilesByIdentifier: routable
+        )
     }
 }
 

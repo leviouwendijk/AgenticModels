@@ -64,6 +64,12 @@ public struct AgentModelGatewayCatalog: Sendable {
             || unavailabilityByIdentifier[identifier] != nil
     }
 
+    public func isAvailable(
+        _ identifier: AgentModelGatewayIdentifier
+    ) -> Bool {
+        gatewaysByIdentifier[identifier] != nil
+    }
+
     public func resolution(
         for identifier: AgentModelGatewayIdentifier
     ) -> AgentModelGatewayResolution? {
@@ -87,12 +93,19 @@ public struct AgentModelGatewayCatalog: Sendable {
     public func gateway(
         for identifier: AgentModelGatewayIdentifier
     ) throws -> any AgentModelGateway {
-        guard let gateway = gatewaysByIdentifier[identifier] else {
-            throw AgentModelRoutingError.gatewayNotFound(
-                identifier
+        if let gateway = gatewaysByIdentifier[identifier] {
+            return gateway
+        }
+
+        if let reason = unavailabilityByIdentifier[identifier] {
+            throw AgentModelRoutingError.gatewayUnavailable(
+                gateway: identifier,
+                reason: reason
             )
         }
 
-        return gateway
+        throw AgentModelRoutingError.gatewayNotFound(
+            identifier
+        )
     }
 }

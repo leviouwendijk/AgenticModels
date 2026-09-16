@@ -147,6 +147,45 @@ public struct StaticAgentModelRouter: AgentModelRouter {
             }
         }
 
+        if let preferredGateway = selection.preferences.gateway {
+            let matchingEligible = ranked(
+                eligible.filter { profile in
+                    profile.gateway.id == preferredGateway
+                },
+                preferences: selection.preferences
+            )
+
+            if let profile = matchingEligible.first {
+                diagnostics.append(
+                    .init(
+                        code: .preferred_gateway_selected,
+                        metadata: [
+                            "gateway": preferredGateway.rawValue,
+                            "profile": profile.identifier.rawValue,
+                        ]
+                    )
+                )
+
+                return result(
+                    profile: profile,
+                    request: request,
+                    diagnostics: diagnostics
+                )
+            }
+
+            preferenceFailed = true
+            diagnostics.append(
+                .init(
+                    code: .preference_unavailable,
+                    severity: .warning,
+                    message: "Preferred model gateway is unavailable for this selection.",
+                    metadata: [
+                        "gateway": preferredGateway.rawValue,
+                    ]
+                )
+            )
+        }
+
         if let defaultIdentifier = defaults[selection.purpose],
            let profile = try? catalog.profile(defaultIdentifier),
            profile.supports(selection)
@@ -291,6 +330,11 @@ private extension StaticAgentModelRouter {
     ) -> Int {
         var score = 0
 
+        if let gateway = preferences.gateway,
+           profile.gateway.id == gateway {
+            score += 4
+        }
+
         if let cost = preferences.cost,
            profile.cost == cost {
             score += 2
@@ -316,7 +360,7 @@ private extension StaticAgentModelRouter {
         diagnostics.append(
             .init(
                 code: .fallback_selected,
-                message: "A preferred model selection could not be used; an eligible fallback profile was selected.",
+                message: "A preferred model routing selection could not be used; an eligible fallback profile was selected.",
                 metadata: [
                     "profile": profile.identifier.rawValue,
                 ]

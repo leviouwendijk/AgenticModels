@@ -4,6 +4,7 @@ public struct AgentModelCatalogs:
     Sendable
 {
     public let profiles: AgentModelProfileCatalog
+    public let routableProfiles: AgentModelProfileCatalog
     public let gateways: AgentModelGatewayCatalog
 
     public init(
@@ -40,12 +41,18 @@ public struct AgentModelCatalogs:
             contentsOf: gatewayOverrides
         )
 
-        self.profiles = try AgentModelProfileCatalog(
+        let profiles = try AgentModelProfileCatalog(
             modelProviders: modelProviders
         )
-        self.gateways = try AgentModelGatewayCatalog(
+        let gateways = try AgentModelGatewayCatalog(
             gateways: realizedGateways,
             unavailabilityByIdentifier: unavailabilityByIdentifier
+        )
+
+        self.profiles = profiles
+        self.gateways = gateways
+        self.routableProfiles = profiles.routable(
+            using: gateways
         )
     }
 }

@@ -73,6 +73,20 @@ enum AgenticModelsFlowSuite: TestFlowRegistry {
             try await AgenticModelsFlowTesting
                 .runGatewayAvailabilityCatalog()
         },
+        TestFlow(
+            "gateway-aware-routing",
+            tags: [
+                "agentic-models",
+                "routing",
+                "gateway",
+                "availability",
+                "preferences",
+                "constraints",
+            ]
+        ) {
+            try await AgenticModelsFlowTesting
+                .runGatewayAwareRouting()
+        },
     ]
 }
 

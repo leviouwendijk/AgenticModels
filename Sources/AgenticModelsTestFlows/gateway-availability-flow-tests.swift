@@ -107,6 +107,296 @@ extension AgenticModelsFlowTesting {
             ),
         ]
     }
+
+    static func runGatewayAwareRouting()
+        async throws
+        -> [TestFlowDiagnostic]
+    {
+        let availableA: AgentModelGatewayIdentifier =
+            "fixture.gateway.available.a"
+        let availableB: AgentModelGatewayIdentifier =
+            "fixture.gateway.available.b"
+        let unavailable: AgentModelGatewayIdentifier =
+            "fixture.gateway.unavailable"
+        let unknown: AgentModelGatewayIdentifier =
+            "fixture.gateway.unknown"
+
+        let profileA = AgentModelProfile(
+            identifier: "fixture.profile.available.a",
+            gateway: .init(
+                id: availableA,
+                model: "fixture-model-a"
+            )
+        )
+        let profileB = AgentModelProfile(
+            identifier: "fixture.profile.available.b",
+            gateway: .init(
+                id: availableB,
+                model: "fixture-model-b"
+            )
+        )
+        let unavailableProfile = AgentModelProfile(
+            identifier: "fixture.profile.unavailable",
+            gateway: .init(
+                id: unavailable,
+                model: "fixture-model-unavailable"
+            )
+        )
+
+        let profiles = try AgentModelProfileCatalog(
+            profiles: [
+                profileA,
+                profileB,
+                unavailableProfile,
+            ]
+        )
+        let gateways = try AgentModelGatewayCatalog(
+            gateways: [
+                GatewayAvailabilityFixtureGateway(
+                    identifier: availableA
+                ),
+                GatewayAvailabilityFixtureGateway(
+                    identifier: availableB
+                ),
+            ],
+            unavailabilityByIdentifier: [
+                unavailable: .init(
+                    kind: .missing_configuration,
+                    message: "Fixture endpoint is not configured.",
+                    metadata: [
+                        "variable": "FIXTURE_ENDPOINT",
+                    ]
+                ),
+            ]
+        )
+        let routable = profiles.routable(
+            using: gateways
+        )
+        let broker = AgentModelBroker(
+            profiles: profiles,
+            gateways: gateways
+        )
+
+        try Expect.equal(
+            profiles.profilesByIdentifier.count,
+            3,
+            "declared catalog retains unavailable profiles"
+        )
+        try Expect.equal(
+            routable.profilesByIdentifier.count,
+            2,
+            "routable catalog excludes unavailable gateway profiles"
+        )
+        try Expect.equal(
+            broker.routableProfiles.profilesByIdentifier.count,
+            2,
+            "broker routes against the routable profile view"
+        )
+
+        let preferredGateway = try broker.route(
+            selection: .init(
+                purpose: .executor,
+                preferences: .init(
+                    gateway: availableB
+                )
+            )
+        )
+
+        try Expect.equal(
+            preferredGateway.route.profile.identifier,
+            profileB.identifier,
+            "gateway preference selects the preferred available gateway"
+        )
+        try Expect.true(
+            preferredGateway.diagnostics.contains { diagnostic in
+                diagnostic.code == .preferred_gateway_selected
+                    && diagnostic.metadata["gateway"]
+                        == availableB.rawValue
+            },
+            "preferred gateway selection is observable"
+        )
+
+        let fallback = try broker.route(
+            selection: .init(
+                purpose: .executor,
+                preferences: .init(
+                    gateway: unavailable
+                )
+            )
+        )
+
+        try Expect.equal(
+            fallback.route.profile.identifier,
+            profileA.identifier,
+            "unavailable soft gateway preference falls back deterministically"
+        )
+        try Expect.true(
+            fallback.diagnostics.contains { diagnostic in
+                diagnostic.code == .preference_unavailable
+                    && diagnostic.metadata["gateway"]
+                        == unavailable.rawValue
+            },
+            "unavailable soft gateway preference is observable"
+        )
+        try Expect.true(
+            fallback.diagnostics.contains { diagnostic in
+                diagnostic.code == .fallback_selected
+            },
+            "unavailable soft gateway preference records fallback"
+        )
+
+        do {
+            _ = try broker.route(
+                selection: .init(
+                    purpose: .executor,
+                    constraints: .init(
+                        allowedProfileIdentifiers: [
+                            unavailableProfile.identifier,
+                        ]
+                    )
+                )
+            )
+            throw GatewayAvailabilityFixtureError
+                .expectedProfileUnavailable
+        } catch let error as AgentModelRoutingError {
+            switch error {
+            case .profileUnavailable(
+                let profile,
+                let gateway,
+                let reason
+            ):
+                try Expect.equal(
+                    profile,
+                    unavailableProfile.identifier,
+                    "unavailable exact profile preserves profile identity"
+                )
+                try Expect.equal(
+                    gateway,
+                    unavailable,
+                    "unavailable exact profile preserves gateway identity"
+                )
+                try Expect.equal(
+                    reason.kind,
+                    .missing_configuration,
+                    "unavailable exact profile preserves structured reason"
+                )
+
+            default:
+                throw error
+            }
+        }
+
+        let missingProfile: AgentModelProfileIdentifier =
+            "fixture.profile.missing"
+
+        do {
+            _ = try broker.route(
+                selection: .init(
+                    purpose: .executor,
+                    constraints: .init(
+                        allowedProfileIdentifiers: [
+                            missingProfile,
+                        ]
+                    )
+                )
+            )
+            throw GatewayAvailabilityFixtureError
+                .expectedProfileNotFound
+        } catch let error as AgentModelRoutingError {
+            switch error {
+            case .profileNotFound(let profile):
+                try Expect.equal(
+                    profile,
+                    missingProfile,
+                    "missing exact profile remains not-found"
+                )
+
+            default:
+                throw error
+            }
+        }
+
+        do {
+            _ = try broker.route(
+                selection: .init(
+                    purpose: .executor,
+                    constraints: .init(
+                        allowedGatewayIdentifiers: [
+                            unavailable,
+                        ]
+                    )
+                )
+            )
+            throw GatewayAvailabilityFixtureError
+                .expectedGatewayUnavailable
+        } catch let error as AgentModelRoutingError {
+            switch error {
+            case .gatewayUnavailable(
+                let gateway,
+                let reason
+            ):
+                try Expect.equal(
+                    gateway,
+                    unavailable,
+                    "known unavailable gateway preserves identity"
+                )
+                try Expect.equal(
+                    reason.metadata["variable"],
+                    "FIXTURE_ENDPOINT",
+                    "known unavailable gateway preserves structured reason"
+                )
+
+            default:
+                throw error
+            }
+        }
+
+        do {
+            _ = try broker.route(
+                selection: .init(
+                    purpose: .executor,
+                    constraints: .init(
+                        allowedGatewayIdentifiers: [
+                            unknown,
+                        ]
+                    )
+                )
+            )
+            throw GatewayAvailabilityFixtureError
+                .expectedGatewayNotFound
+        } catch let error as AgentModelRoutingError {
+            switch error {
+            case .gatewayNotFound(let gateway):
+                try Expect.equal(
+                    gateway,
+                    unknown,
+                    "unknown gateway remains not-found"
+                )
+
+            default:
+                throw error
+            }
+        }
+
+        return [
+            .field(
+                "declared_profiles",
+                String(profiles.profilesByIdentifier.count)
+            ),
+            .field(
+                "routable_profiles",
+                String(routable.profilesByIdentifier.count)
+            ),
+            .field(
+                "preferred_gateway",
+                preferredGateway.route.profile.gateway.id.rawValue
+            ),
+            .field(
+                "fallback_gateway",
+                fallback.route.profile.gateway.id.rawValue
+            ),
+        ]
+    }
 }
 
 private enum GatewayAvailabilityFixtureError:
@@ -114,6 +404,10 @@ private enum GatewayAvailabilityFixtureError:
 {
     case expectedAvailable
     case expectedUnavailable
+    case expectedProfileUnavailable
+    case expectedProfileNotFound
+    case expectedGatewayUnavailable
+    case expectedGatewayNotFound
 }
 
 private struct GatewayAvailabilityFixtureProvider:

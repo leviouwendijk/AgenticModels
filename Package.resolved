@@ -7,7 +7,7 @@
       "location" : "https://github.com/leviouwendijk/Agentic.git",
       "state" : {
         "branch" : "master",
-        "revision" : "e1dd15c03696e14cbc6dd7879e5638c28a632a02"
+        "revision" : "bc7665735957b8298fdb58d6c5d8e050913ee57c"
       }
     },
     {
@@ -43,7 +43,7 @@
       "location" : "https://github.com/leviouwendijk/Difference.git",
       "state" : {
         "branch" : "master",
-        "revision" : "7d295238c789f009fd720f3cf5ca8e730068c0c5"
+        "revision" : "8332c1ae56901b73f3b23a9c490516f0f6bb78fb"
       }
     },
     {
@@ -53,6 +53,15 @@
       "state" : {
         "branch" : "master",
         "revision" : "30ec6798f883b91f697d060bb001e0e4f7a09225"
+      }
+    },
+    {
+      "identity" : "excerpt",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Excerpt.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "e7a0a0699e9cf01d0b58085f0a99fac42b400ba2"
       }
     },
     {
@@ -71,6 +80,15 @@
       "state" : {
         "branch" : "master",
         "revision" : "44885d7ebddc4e9ced6f7cba0deac0ca98da20f1"
+      }
+    },
+    {
+      "identity" : "position",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Position.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "23c0ec4218a64853830a9448a97b756731e0afab"
       }
     },
     {

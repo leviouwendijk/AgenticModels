@@ -2,6 +2,7 @@ import Agentic
 
 public struct AgentModelBroker: Sendable, AgentModelInvoking {
     public let profiles: AgentModelProfileCatalog
+    public let routableProfiles: AgentModelProfileCatalog
     public let gateways: AgentModelGatewayCatalog
     public let router: any AgentModelRouter
     public let selectionResolver: AgentModelSelectionResolver
@@ -15,6 +16,9 @@ public struct AgentModelBroker: Sendable, AgentModelInvoking {
         ledger: (any AgentModelRouteLedger)? = nil
     ) {
         self.profiles = profiles
+        self.routableProfiles = profiles.routable(
+            using: gateways
+        )
         self.gateways = gateways
         self.router = router
         self.selectionResolver = selectionResolver
@@ -28,7 +32,7 @@ public struct AgentModelBroker: Sendable, AgentModelInvoking {
             invocation
         )
         let gateway = try gateways.gateway(
-            for: prepared.routeResult.route.profile.gatewayIdentifier
+            for: prepared.routeResult.route.profile.gateway.id
         )
         let response = try await gateway.respond(
             request: invocation.request,
@@ -57,7 +61,7 @@ public struct AgentModelBroker: Sendable, AgentModelInvoking {
                         invocation
                     )
                     let gateway = try gateways.gateway(
-                        for: prepared.routeResult.route.profile.gatewayIdentifier
+                        for: prepared.routeResult.route.profile.gateway.id
                     )
 
                     continuation.yield(
@@ -117,12 +121,11 @@ public struct AgentModelBroker: Sendable, AgentModelInvoking {
         let resolution = try selectionResolver.resolve(
             selection
         )
-        let routed = try router.route(
+        let routed = try route(
             .init(
                 selection: resolution.selection,
                 metadata: metadata
-            ),
-            catalog: profiles
+            )
         )
 
         return .init(
@@ -138,6 +141,109 @@ private extension AgentModelBroker {
     struct PreparedInvocation {
         var routeResult: AgentModelRouteResult
         var requestMetadata: [String: String]
+    }
+
+    func route(
+        _ request: AgentModelRouteRequest
+    ) throws -> AgentModelRouteResult {
+        do {
+            return try router.route(
+                request,
+                catalog: routableProfiles
+            )
+        } catch let error as AgentModelRoutingError {
+            switch error {
+            case .noRoute:
+                try diagnoseUnavailableSelection(
+                    request.selection
+                )
+                throw error
+
+            default:
+                throw error
+            }
+        }
+    }
+
+    func diagnoseUnavailableSelection(
+        _ selection: AgentModelSelection
+    ) throws {
+        if let constrainedProfiles = selection.constraints.profiles,
+           constrainedProfiles.count == 1,
+           let profile = constrainedProfiles.first
+        {
+            try diagnoseProfile(
+                profile
+            )
+        }
+
+        if let constrainedGateways = selection.constraints.gateways,
+           constrainedGateways.count == 1,
+           let gateway = constrainedGateways.first
+        {
+            try diagnoseGateway(
+                gateway
+            )
+        }
+
+        if let profile = selection.preferences.profile {
+            try diagnoseProfile(
+                profile
+            )
+        }
+
+        if let gateway = selection.preferences.gateway {
+            try diagnoseGateway(
+                gateway
+            )
+        }
+    }
+
+    func diagnoseProfile(
+        _ identifier: AgentModelProfileIdentifier
+    ) throws {
+        guard let profile = profiles.profilesByIdentifier[identifier] else {
+            throw AgentModelRoutingError.profileNotFound(
+                identifier
+            )
+        }
+
+        let gateway = profile.gateway.id
+
+        if let reason = gateways.unavailability(
+            for: gateway
+        ) {
+            throw AgentModelRoutingError.profileUnavailable(
+                profile: identifier,
+                gateway: gateway,
+                reason: reason
+            )
+        }
+
+        guard gateways.contains(gateway) else {
+            throw AgentModelRoutingError.gatewayNotFound(
+                gateway
+            )
+        }
+    }
+
+    func diagnoseGateway(
+        _ identifier: AgentModelGatewayIdentifier
+    ) throws {
+        if let reason = gateways.unavailability(
+            for: identifier
+        ) {
+            throw AgentModelRoutingError.gatewayUnavailable(
+                gateway: identifier,
+                reason: reason
+            )
+        }
+
+        guard gateways.contains(identifier) else {
+            throw AgentModelRoutingError.gatewayNotFound(
+                identifier
+            )
+        }
     }
 
     func prepare(
@@ -162,12 +268,11 @@ private extension AgentModelBroker {
             new
         }
 
-        let routed = try router.route(
+        let routed = try route(
             .init(
                 selection: resolution.selection,
                 metadata: requestMetadata
-            ),
-            catalog: profiles
+            )
         )
 
         return .init(
