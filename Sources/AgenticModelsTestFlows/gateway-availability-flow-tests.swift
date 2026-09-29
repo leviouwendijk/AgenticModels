@@ -18,7 +18,7 @@ extension AgenticModelsFlowTesting {
             availableIdentifier: availableIdentifier,
             unavailableIdentifier: unavailableIdentifier
         )
-        let catalogs = try await AgentModelCatalogs(
+        let catalogs = try await ModelCatalogs(
             modelProviders: [provider]
         )
 
@@ -143,14 +143,14 @@ extension AgenticModelsFlowTesting {
             )
         )
 
-        let profiles = try AgentModelProfileCatalog(
+        let profiles = try ProfileCatalog(
             profiles: [
                 profileA,
                 profileB,
                 unavailableProfile,
             ]
         )
-        let gateways = try AgentModelGatewayCatalog(
+        let gateways = try GatewayCatalog(
             gateways: [
                 GatewayAvailabilityFixtureGateway(
                     identifier: availableA
@@ -172,7 +172,7 @@ extension AgenticModelsFlowTesting {
         let routable = profiles.routable(
             using: gateways
         )
-        let broker = AgentModelBroker(
+        let broker = ModelBroker(
             profiles: profiles,
             gateways: gateways
         )

@@ -1,6 +1,6 @@
 import Agentic
 
-public actor MemoryAgentModelRouteLedger: AgentModelRouteLedger {
+public actor MemoryModelRouteLedger: AgentModelRouteLedger {
     private var records: [AgentModelRouteRecord]
 
     public init(

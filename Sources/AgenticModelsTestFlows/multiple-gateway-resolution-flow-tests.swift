@@ -25,13 +25,13 @@ extension AgenticModelsFlowTesting {
             model: "fixture-model-secondary"
         )
 
-        let profiles = try AgentModelProfileCatalog(
+        let profiles = try ProfileCatalog(
             profiles: [
                 primaryProfile,
                 secondaryProfile,
             ]
         )
-        let gateways = try AgentModelGatewayCatalog(
+        let gateways = try GatewayCatalog(
             gateways: [
                 MultipleGatewayFixtureGateway(
                     identifier: primaryGatewayIdentifier
@@ -41,7 +41,7 @@ extension AgenticModelsFlowTesting {
                 ),
             ]
         )
-        let broker = AgentModelBroker(
+        let broker = ModelBroker(
             profiles: profiles,
             gateways: gateways
         )

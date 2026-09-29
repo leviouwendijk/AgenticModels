@@ -1,85 +1,87 @@
 import Agentic
 
-public enum AgentModelSelectionSource:
-    String,
-    Sendable,
-    Codable,
-    Hashable,
-    CaseIterable
-{
-    case mode_default
-    case optimized_realization
-    case session
-    case task
-    case user
-}
+extension ModelSelectionResolver {
+    public enum Source:
+        String,
+        Sendable,
+        Codable,
+        Hashable,
+        CaseIterable
+    {
+        case mode_default
+        case optimized_realization
+        case session
+        case task
+        case user
+    }
 
-public struct AgentModelSelectionContribution:
-    Sendable,
-    Codable,
-    Hashable
-{
-    public var source: AgentModelSelectionSource
-    public var selection: AgentModelSelection
-    public var metadata: [String: String]
+    public struct Contribution:
+        Sendable,
+        Codable,
+        Hashable
+    {
+        public var source: ModelSelectionResolver.Source
+        public var selection: AgentModelSelection
+        public var metadata: [String: String]
 
-    public init(
-        source: AgentModelSelectionSource,
-        selection: AgentModelSelection,
-        metadata: [String: String] = [:]
-    ) {
-        self.source = source
-        self.selection = selection
-        self.metadata = metadata
+        public init(
+            source: ModelSelectionResolver.Source,
+            selection: AgentModelSelection,
+            metadata: [String: String] = [:]
+        ) {
+            self.source = source
+            self.selection = selection
+            self.metadata = metadata
+        }
+    }
+
+    public struct Resolution:
+        Sendable,
+        Codable,
+        Hashable
+    {
+        public var selection: AgentModelSelection
+        public var diagnostics: [AgentModelSelectionDiagnostic]
+
+        public init(
+            selection: AgentModelSelection,
+            diagnostics: [AgentModelSelectionDiagnostic] = []
+        ) {
+            self.selection = selection
+            self.diagnostics = diagnostics
+        }
+    }
+
+    public enum Failure:
+        Error,
+        Sendable,
+        Hashable
+    {
+        case empty_contributions
+        case conflicting_purpose(
+            expected: AgentModelRoutePurpose,
+            actual: AgentModelRoutePurpose,
+            source: ModelSelectionResolver.Source
+        )
     }
 }
 
-public struct AgentModelSelectionResolution:
-    Sendable,
-    Codable,
-    Hashable
-{
-    public var selection: AgentModelSelection
-    public var diagnostics: [AgentModelSelectionDiagnostic]
-
-    public init(
-        selection: AgentModelSelection,
-        diagnostics: [AgentModelSelectionDiagnostic] = []
-    ) {
-        self.selection = selection
-        self.diagnostics = diagnostics
-    }
-}
-
-public enum AgentModelSelectionResolutionError:
-    Error,
-    Sendable,
-    Hashable
-{
-    case empty_contributions
-    case conflicting_purpose(
-        expected: AgentModelRoutePurpose,
-        actual: AgentModelRoutePurpose,
-        source: AgentModelSelectionSource
-    )
-}
-
-public struct AgentModelSelectionResolver: Sendable {
+public struct ModelSelectionResolver: Sendable {
     public init() {}
 
     public func resolve(
         _ selection: AgentModelSelection
-    ) throws -> AgentModelSelectionResolution {
+    ) throws -> ModelSelectionResolver.Resolution {
         .init(
             selection: selection
         )
     }
 
     public func resolve(
-        _ contributions: [AgentModelSelectionContribution]
-    ) throws -> AgentModelSelectionResolution {
+        _ contributions: [ModelSelectionResolver.Contribution]
+    ) throws -> ModelSelectionResolver.Resolution {
         guard !contributions.isEmpty else {
-            throw AgentModelSelectionResolutionError
+            throw ModelSelectionResolver.Failure
                 .empty_contributions
         }
 
@@ -113,7 +115,7 @@ public struct AgentModelSelectionResolver: Sendable {
 
         for contribution in ordered {
             guard contribution.selection.purpose == purpose else {
-                throw AgentModelSelectionResolutionError
+                throw ModelSelectionResolver.Failure
                     .conflicting_purpose(
                         expected: purpose,
                         actual: contribution.selection.purpose,
@@ -155,9 +157,9 @@ public struct AgentModelSelectionResolver: Sendable {
     }
 }
 
-private extension AgentModelSelectionResolver {
+private extension ModelSelectionResolver {
     func precedence(
-        _ source: AgentModelSelectionSource
+        _ source: ModelSelectionResolver.Source
     ) -> Int {
         switch source {
         case .mode_default:

@@ -14,6 +14,12 @@ enum AgenticModelsFlowSuite: TestFlowRegistry {
 
     static let flows: [TestFlow] = [
         TestFlow(
+            "routing-boundaries",
+            tags: ["agentic-models", "routing", "configuration"]
+        ) {
+            try await AgenticModelsFlowTesting.runRoutingBoundaries()
+        },
+        TestFlow(
             "broker-model-invocation",
             tags: [
                 "agentic-models",

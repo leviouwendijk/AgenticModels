@@ -12,21 +12,21 @@ extension AgenticModelsFlowTesting {
             gatewayIdentifier: "fixture.gateway",
             model: "fixture-model"
         )
-        let profiles = try AgentModelProfileCatalog(
+        let profiles = try ProfileCatalog(
             profiles: [
                 profile,
             ]
         )
-        let gateways = try AgentModelGatewayCatalog(
+        let gateways = try GatewayCatalog(
             gateways: [
                 FixtureModelGateway(),
             ]
         )
-        let ledger = MemoryAgentModelRouteLedger()
-        let broker = AgentModelBroker(
+        let ledger = MemoryModelRouteLedger()
+        let broker = ModelBroker(
             profiles: profiles,
             gateways: gateways,
-            router: StaticAgentModelRouter(
+            router: StaticModelRouter(
                 defaultProfileIdentifier: profile.identifier
             ),
             ledger: ledger
@@ -124,7 +124,7 @@ extension AgenticModelsFlowTesting {
         async throws
         -> [TestFlowDiagnostic]
     {
-        let resolver = AgentModelSelectionResolver()
+        let resolver = ModelSelectionResolver()
         let resolution = try resolver.resolve(
             [
                 .init(
@@ -275,13 +275,13 @@ extension AgenticModelsFlowTesting {
                 .executor,
             ]
         )
-        let catalog = try AgentModelProfileCatalog(
+        let catalog = try ProfileCatalog(
             profiles: [
                 rejected,
                 eligible,
             ]
         )
-        let router = StaticAgentModelRouter()
+        let router = StaticModelRouter()
         let result = try router.route(
             .init(
                 selection: .init(

@@ -1,6 +1,6 @@
 import Agentic
 
-public struct AgentModelGatewayCatalog: Sendable {
+public struct GatewayCatalog: Sendable {
     public let gatewaysByIdentifier: [
         AgentModelGatewayIdentifier: any AgentModelGateway
     ]

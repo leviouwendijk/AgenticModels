@@ -1,70 +1,62 @@
 import Agentic
 
-public struct AgentModelCatalogs:
+public struct ModelCatalogs:
     Sendable
 {
-    public let profiles: AgentModelProfileCatalog
-    public let routableProfiles: AgentModelProfileCatalog
-    public let gateways: AgentModelGatewayCatalog
+    public let profiles: ProfileCatalog
+    public let routableProfiles: ProfileCatalog
+    public let gateways: GatewayCatalog
 
     public init(
         modelProviders: [any AgentModelProvider],
         gatewayFactories: [AgentModelGatewayFactory] = [],
         gatewayOverrides: [any AgentModelGateway] = []
     ) async throws {
-        var realizedGateways: [any AgentModelGateway] = []
-        var unavailabilityByIdentifier: [
-            AgentModelGatewayIdentifier: AgentModelGatewayUnavailability
-        ] = [:]
-
+        // Later registrations win within each layer. Explicit factories override
+        // integration factories; realized gateways override both factory layers.
+        // Choose registrations before resolving any environment or client.
+        var factories: [AgentModelGatewayIdentifier: AgentModelGatewayFactory] = [:]
         for provider in modelProviders {
             for factory in provider.gateways {
+                factories[factory.identifier] = factory
+            }
+        }
+        for factory in gatewayFactories {
+            factories[factory.identifier] = factory
+        }
+
+        var overrides: [AgentModelGatewayIdentifier: any AgentModelGateway] = [:]
+        for gateway in gatewayOverrides {
+            overrides[gateway.identifier] = gateway
+            factories.removeValue(forKey: gateway.identifier)
+        }
+
+        let identifiers = Set(factories.keys).union(overrides.keys)
+        for identifier in identifiers where identifier.rawValue.isEmpty {
+            throw AgentModelRoutingError.emptyIdentifier("gateway")
+        }
+
+        let profiles = try ProfileCatalog(modelProviders: modelProviders)
+        var realized: [any AgentModelGateway] = []
+        var unavailable: [AgentModelGatewayIdentifier: AgentModelGatewayUnavailability] = [:]
+
+        for identifier in identifiers.sorted(by: { $0.rawValue < $1.rawValue }) {
+            try Task.checkCancellation()
+            if let gateway = overrides[identifier] {
+                realized.append(gateway)
+            } else if let factory = factories[identifier] {
                 switch try await factory.resolve() {
                 case .available(let gateway):
-                    realizedGateways.append(gateway)
-                    unavailabilityByIdentifier.removeValue(
-                        forKey: factory.identifier
-                    )
-
+                    realized.append(gateway)
                 case .unavailable(let reason):
-                    unavailabilityByIdentifier[factory.identifier] = reason
+                    unavailable[identifier] = reason
                 }
             }
         }
 
-        for factory in gatewayFactories {
-            realizedGateways.removeAll { gateway in
-                gateway.identifier == factory.identifier
-            }
-
-            switch try await factory.resolve() {
-            case .available(let gateway):
-                realizedGateways.append(gateway)
-                unavailabilityByIdentifier.removeValue(
-                    forKey: factory.identifier
-                )
-
-            case .unavailable(let reason):
-                unavailabilityByIdentifier[factory.identifier] = reason
-            }
-        }
-
-        for gateway in gatewayOverrides {
-            realizedGateways.removeAll { realized in
-                realized.identifier == gateway.identifier
-            }
-            unavailabilityByIdentifier.removeValue(
-                forKey: gateway.identifier
-            )
-            realizedGateways.append(gateway)
-        }
-
-        let profiles = try AgentModelProfileCatalog(
-            modelProviders: modelProviders
-        )
-        let gateways = try AgentModelGatewayCatalog(
-            gateways: realizedGateways,
-            unavailabilityByIdentifier: unavailabilityByIdentifier
+        let gateways = try GatewayCatalog(
+            gateways: realized,
+            unavailabilityByIdentifier: unavailable
         )
 
         self.profiles = profiles

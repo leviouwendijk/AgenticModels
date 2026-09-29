@@ -1,13 +1,13 @@
 import Agentic
 
-public protocol AgentModelRouter: Sendable {
+public protocol ModelRouter: Sendable {
     func route(
         _ request: AgentModelRouteRequest,
-        catalog: AgentModelProfileCatalog
+        catalog: ProfileCatalog
     ) throws -> AgentModelRouteResult
 }
 
-public struct StaticAgentModelRouter: AgentModelRouter {
+public struct StaticModelRouter: ModelRouter {
     public var defaults: [AgentModelRoutePurpose: AgentModelProfileIdentifier]
     public var defaultProfileIdentifier: AgentModelProfileIdentifier?
 
@@ -21,7 +21,7 @@ public struct StaticAgentModelRouter: AgentModelRouter {
 
     public func route(
         _ request: AgentModelRouteRequest,
-        catalog: AgentModelProfileCatalog
+        catalog: ProfileCatalog
     ) throws -> AgentModelRouteResult {
         let selection = request.selection
         let eligible = catalog.profiles(
@@ -267,7 +267,7 @@ public struct StaticAgentModelRouter: AgentModelRouter {
     }
 }
 
-private extension StaticAgentModelRouter {
+private extension StaticModelRouter {
     func result(
         profile: AgentModelProfile,
         request: AgentModelRouteRequest,

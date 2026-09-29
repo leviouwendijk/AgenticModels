@@ -1,6 +1,6 @@
 import Agentic
 
-public extension AgentModelProfileCatalog {
+public extension ProfileCatalog {
     init(
         snapshot: AgentModelProfileSnapshot
     ) throws {

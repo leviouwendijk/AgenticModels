@@ -1,7 +1,7 @@
 import Agentic
 import Foundation
 
-public struct AgentModelProfileCatalog: Sendable {
+public struct ProfileCatalog: Sendable {
     public let profilesByIdentifier: [AgentModelProfileIdentifier: AgentModelProfile]
 
     public init(
@@ -99,7 +99,7 @@ public struct AgentModelProfileCatalog: Sendable {
     }
 
     public func routable(
-        using gateways: AgentModelGatewayCatalog
+        using gateways: GatewayCatalog
     ) -> Self {
         var routable: [
             AgentModelProfileIdentifier: AgentModelProfile
@@ -143,7 +143,7 @@ private enum AgentModelProfileOrdering {
 }
 
 // providers
-public extension AgentModelProfileCatalog {
+public extension ProfileCatalog {
     init(
         modelProviders: [any AgentModelProvider]
     ) throws {
@@ -163,7 +163,7 @@ public extension AgentModelProfileCatalog {
     static func discovered(
         from discoveries: [any AgentModelProfileDiscovery],
         request: AgentModelProfileDiscoveryRequest = .manual
-    ) async throws -> AgentModelProfileCatalog {
+    ) async throws -> ProfileCatalog {
         var snapshots: [AgentModelProfileSnapshot] = []
 
         for discovery in discoveries {

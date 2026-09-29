@@ -1,18 +1,18 @@
 import Agentic
 
-public struct AgentModelBroker: Sendable, AgentModelInvoking {
-    public let profiles: AgentModelProfileCatalog
-    public let routableProfiles: AgentModelProfileCatalog
-    public let gateways: AgentModelGatewayCatalog
-    public let router: any AgentModelRouter
-    public let selectionResolver: AgentModelSelectionResolver
+public struct ModelBroker: Sendable, AgentModelInvoking {
+    public let profiles: ProfileCatalog
+    public let routableProfiles: ProfileCatalog
+    public let gateways: GatewayCatalog
+    public let router: any ModelRouter
+    public let selectionResolver: ModelSelectionResolver
     public let ledger: (any AgentModelRouteLedger)?
 
     public init(
-        profiles: AgentModelProfileCatalog,
-        gateways: AgentModelGatewayCatalog,
-        router: any AgentModelRouter = StaticAgentModelRouter(),
-        selectionResolver: AgentModelSelectionResolver = .init(),
+        profiles: ProfileCatalog,
+        gateways: GatewayCatalog,
+        router: any ModelRouter = StaticModelRouter(),
+        selectionResolver: ModelSelectionResolver = .init(),
         ledger: (any AgentModelRouteLedger)? = nil
     ) {
         self.profiles = profiles
@@ -137,7 +137,7 @@ public struct AgentModelBroker: Sendable, AgentModelInvoking {
     }
 }
 
-private extension AgentModelBroker {
+private extension ModelBroker {
     struct PreparedInvocation {
         var routeResult: AgentModelRouteResult
         var requestMetadata: [String: String]
@@ -147,10 +147,24 @@ private extension AgentModelBroker {
         _ request: AgentModelRouteRequest
     ) throws -> AgentModelRouteResult {
         do {
-            return try router.route(
+            let result = try router.route(
                 request,
                 catalog: routableProfiles
             )
+            let selected = result.route.profile
+            guard result.route.purpose == request.selection.purpose else {
+                throw Rejection.purpose_mismatch
+            }
+            guard let registered = routableProfiles.profilesByIdentifier[selected.identifier] else {
+                throw Rejection.unknown_profile(selected.identifier)
+            }
+            guard selected == registered else {
+                throw Rejection.altered_profile(selected.identifier)
+            }
+            guard registered.supports(request.selection) else {
+                throw Rejection.ineligible_profile(selected.identifier)
+            }
+            return result
         } catch let error as AgentModelRoutingError {
             switch error {
             case .noRoute:
@@ -305,5 +319,14 @@ private extension AgentModelBroker {
         )
 
         return record
+    }
+}
+
+public extension ModelBroker {
+    enum Rejection: Swift.Error, Sendable, Hashable {
+        case purpose_mismatch
+        case unknown_profile(AgentModelProfileIdentifier)
+        case altered_profile(AgentModelProfileIdentifier)
+        case ineligible_profile(AgentModelProfileIdentifier)
     }
 }
