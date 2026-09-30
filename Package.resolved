@@ -7,7 +7,7 @@
       "location" : "https://github.com/leviouwendijk/Agentic.git",
       "state" : {
         "branch" : "master",
-        "revision" : "fa1fd578c38f02dd25d3a7963ceadbf20c7c10d3"
+        "revision" : "cb74747bc51b760b4b2de41966d4d5837c6714d0"
       }
     },
     {
@@ -52,7 +52,7 @@
       "location" : "https://github.com/leviouwendijk/Difference.git",
       "state" : {
         "branch" : "master",
-        "revision" : "1938bd3531e7d4c9476b67d10d052375f24c41e3"
+        "revision" : "ad07eb01d829b868cc6349503f40fa38148b52fd"
       }
     },
     {
@@ -106,7 +106,7 @@
       "location" : "https://github.com/leviouwendijk/Guidelines.git",
       "state" : {
         "branch" : "master",
-        "revision" : "0a5bd3f30af7eaeb79c0ac37007f10322920f95a"
+        "revision" : "1c8f590184daecad0488b1bb2514070b0f11491c"
       }
     },
     {
@@ -133,7 +133,7 @@
       "location" : "https://github.com/leviouwendijk/Macros.git",
       "state" : {
         "branch" : "master",
-        "revision" : "cfcf3c3595a90c52cce313a60cd42e04f245490f"
+        "revision" : "e01a42e9d0ee8061e861bc68c1fb2a02d26cbde4"
       }
     },
     {
@@ -304,7 +304,7 @@
       "location" : "https://github.com/leviouwendijk/Workspace.git",
       "state" : {
         "branch" : "master",
-        "revision" : "bb0a7031b250ef31b343480754a6427ca9f634b1"
+        "revision" : "0a88d98969ec53c1927293062fe6c4165d99e641"
       }
     }
   ],
