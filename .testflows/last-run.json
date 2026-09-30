@@ -3,23 +3,96 @@
   "failed_names" : [
 
   ],
-  "generated_at" : "2026-09-09T08:55:12Z",
-  "passed" : 1,
+  "generated_at" : "2026-09-29T10:49:30Z",
+  "passed" : 7,
   "results" : [
     {
-      "display_name" : "broker-buffered-result",
-      "duration_seconds" : 0.0010368824005126953,
-      "name" : "broker-buffered-result",
+      "display_name" : "routing-boundaries",
+      "duration_seconds" : 0.0031789541244506836,
+      "name" : "routing-boundaries",
+      "status" : "passed",
+      "tags" : [
+        "agentic-models",
+        "configuration",
+        "routing"
+      ]
+    },
+    {
+      "display_name" : "broker-model-invocation",
+      "duration_seconds" : 0.00028502941131591797,
+      "name" : "broker-model-invocation",
       "status" : "passed",
       "tags" : [
         "agentic-models",
         "broker",
+        "invocation",
         "ledger",
+        "routing"
+      ]
+    },
+    {
+      "display_name" : "selection-resolution",
+      "duration_seconds" : 0.00020802021026611328,
+      "name" : "selection-resolution",
+      "status" : "passed",
+      "tags" : [
+        "agentic-models",
+        "resolution",
+        "selection"
+      ]
+    },
+    {
+      "display_name" : "preference-fallback",
+      "duration_seconds" : 7.796287536621094e-05,
+      "name" : "preference-fallback",
+      "status" : "passed",
+      "tags" : [
+        "agentic-models",
+        "constraints",
+        "preferences",
+        "routing"
+      ]
+    },
+    {
+      "display_name" : "multiple-gateway-resolution",
+      "duration_seconds" : 0.00012004375457763672,
+      "name" : "multiple-gateway-resolution",
+      "status" : "passed",
+      "tags" : [
+        "agentic-models",
+        "gateway",
+        "multiple-gateways",
+        "routing"
+      ]
+    },
+    {
+      "display_name" : "gateway-availability-catalog",
+      "duration_seconds" : 6.794929504394531e-05,
+      "name" : "gateway-availability-catalog",
+      "status" : "passed",
+      "tags" : [
+        "agentic-models",
+        "availability",
+        "catalog",
+        "gateway"
+      ]
+    },
+    {
+      "display_name" : "gateway-aware-routing",
+      "duration_seconds" : 0.0001729726791381836,
+      "name" : "gateway-aware-routing",
+      "status" : "passed",
+      "tags" : [
+        "agentic-models",
+        "availability",
+        "constraints",
+        "gateway",
+        "preferences",
         "routing"
       ]
     }
   ],
   "skipped" : 0,
   "title" : "AgenticModels flow tests",
-  "total" : 1
+  "total" : 7
 }
